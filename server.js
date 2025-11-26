@@ -1,6 +1,9 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import aiRoutes from "./src/routes/ai.routes.js";
+import cvsRoutes from "./src/routes/cvs.routes.js";
+import cvProcessRoutes from "./src/routes/cv.process.routes.js";
 
 // Rutas
 import uploadRoutes from './src/routes/upload.routes.js';
@@ -15,6 +18,9 @@ app.use(express.json());
 // Rutas
 app.use('/upload', uploadRoutes);
 app.use('/auth', authRoutes);
+app.use("/ai", aiRoutes);
+app.use("/cvs", cvsRoutes);
+app.use("/cv", cvProcessRoutes);
 
 // Puerto
 const PORT = process.env.PORT || 3001;
