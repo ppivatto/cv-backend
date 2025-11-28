@@ -12,8 +12,14 @@ import authRoutes from './src/routes/auth.routes.js';
 dotenv.config();
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: "http://localhost:3000",   // o el puerto donde corre tu FE
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"]
+}));
+
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // Rutas
 app.use('/upload', uploadRoutes);
