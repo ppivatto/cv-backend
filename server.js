@@ -4,18 +4,18 @@ import dotenv from 'dotenv';
 import aiRoutes from "./src/routes/ai.routes.js";
 import cvsRoutes from "./src/routes/cvs.routes.js";
 import cvProcessRoutes from "./src/routes/cv.process.routes.js";
+import authRoutes from "./src/routes/auth.routes.js";
 
 // Rutas
 import uploadRoutes from './src/routes/upload.routes.js';
-import authRoutes from './src/routes/auth.routes.js';
 
 dotenv.config();
 
 const app = express();
 app.use(cors({
-  origin: "http://localhost:3000",   // o el puerto donde corre tu FE
+  origin: "http://localhost:5173",   // o el puerto donde corre tu FE
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"]
+  allowedHeaders: ["Content-Type", "Authorization", "x-user-id"],
 }));
 
 app.use(express.json());

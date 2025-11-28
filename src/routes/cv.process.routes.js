@@ -1,18 +1,19 @@
-import { Router } from 'express';
-import multer from 'multer';
-import { extractText } from '../services/extract.service.js';
-import { uploadToSupabase } from '../services/supabase.service.js';
-import { askGroq } from '../services/ai.service.js';
-import { parseGroqCV } from '../utils/parseCvResponse.js';
-import { logInfo, logError, logStep } from '../utils/logger.js';
+import { Router } from "express";
+import multer from "multer";
+import { extractText } from "../services/extract.service.js";
+import { uploadToSupabase } from "../services/supabase.service.js";
+import { askGroq } from "../services/ai.service.js";
+import { parseGroqCV } from "../utils/parseCvResponse.js";
+import { logInfo, logError, logStep } from "../utils/logger.js";
 import { v4 as uuidv4 } from "uuid";
 
 const router = Router();
 const upload = multer();
 
-router.post('/process', upload.single('file'), async (req, res) => {
+router.post("/process", upload.single("file"), async (req, res) => {
   const reqId = uuidv4();
   const t0 = Date.now();
+  const userId = req.headers["x-user-id"] || "anon";
 
   try {
     logInfo("⚡ CV_PROCESS_START", { reqId });
@@ -22,40 +23,39 @@ router.post('/process', upload.single('file'), async (req, res) => {
       return res.status(400).json({
         success: false,
         error: "No file uploaded",
-        requestId: reqId
+        requestId: reqId,
       });
     }
 
     const { originalname, mimetype, size, buffer } = req.file;
 
-    // 1) Extract text
+    // 1) EXTRACT TEXT
     const tExtract0 = Date.now();
     logStep(`(${reqId}) Extrayendo texto del CV...`);
     const extracted = await extractText(originalname, buffer);
     const tExtract = Date.now() - tExtract0;
 
-    // 2) Upload file to Supabase
+    // 2) UPLOAD TO SUPABASE
     const tUpload0 = Date.now();
     logStep(`(${reqId}) Subiendo archivo a Supabase...`);
-    const fileUrl = await uploadToSupabase(originalname, buffer);
+    const uploaded = await uploadToSupabase(originalname, buffer, userId);
     const tUpload = Date.now() - tUpload0;
 
-    // 3) Send to AI for structured analysis
+    // 3) SEND TO AI
     const tAI0 = Date.now();
     logStep(`(${reqId}) Enviando texto a Groq...`);
     const aiResponse = await askGroq(extracted);
     const tAI = Date.now() - tAI0;
 
-    // 4) Parsear la respuesta con nuestro parser robusto
+    // 4) PARSE RESPONSE
     const tParse0 = Date.now();
     logStep(`(${reqId}) Parseando respuesta de la IA...`);
     const parsed = parseGroqCV(aiResponse.raw);
     const tParse = Date.now() - tParse0;
 
-    // TOTAL
     const total = Date.now() - t0;
 
-    // Logging final
+    // LOG METRICS
     logInfo("📊 CV_PROCESS_METRICS", {
       reqId,
       total_ms: total,
@@ -65,7 +65,7 @@ router.post('/process', upload.single('file'), async (req, res) => {
       parse_ms: tParse,
       ai_model: aiResponse.model || "llama-3.1-8b-instant",
       ai_tokens: aiResponse.tokens || null,
-      file: { name: originalname, size, type: mimetype }
+      file: { name: originalname, size, type: mimetype },
     });
 
     return res.json({
@@ -73,7 +73,9 @@ router.post('/process', upload.single('file'), async (req, res) => {
       requestId: reqId,
       file: {
         name: originalname,
-        url: fileUrl,
+        url: uploaded.publicUrl,
+        path: uploaded.path,
+        id: uploaded.id,
         size,
         type: mimetype,
       },
@@ -81,8 +83,8 @@ router.post('/process', upload.single('file'), async (req, res) => {
       analysis: {
         parsed,
         raw: aiResponse.raw,
-        model: aiResponse.model || "llama-3.1-8b-instant",
-        tokens: aiResponse.tokens ?? null
+        model: aiResponse.model,
+        tokens: aiResponse.tokens,
       },
       metrics: {
         total,
@@ -93,14 +95,13 @@ router.post('/process', upload.single('file'), async (req, res) => {
       },
       timestamp: new Date().toISOString(),
     });
-
   } catch (err) {
     logError("❌ CV_PROCESS_ERROR", { reqId, error: err.message });
 
     return res.status(500).json({
       success: false,
       error: err.message,
-      requestId: reqId
+      requestId: reqId,
     });
   }
 });
